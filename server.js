@@ -1,6 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as url from "node:url";
+import * as http from "node:http";
 
 import { createRequestHandler } from "@remix-run/express";
 import { broadcastDevReady, installGlobals } from "@remix-run/node";
@@ -8,6 +9,7 @@ import compression from "compression";
 import express from "express";
 import morgan from "morgan";
 import sourceMapSupport from "source-map-support";
+import { Server } from 'socket.io';
 
 sourceMapSupport.install();
 installGlobals();
@@ -27,6 +29,20 @@ const remixHandler =
       });
 
 const app = express();
+
+//socket.io
+const httpServer = http.createServer(app);
+const io = new Server(httpServer);
+
+io.on("connection", (socket)=>{
+  console.log(socket.id, "connected");
+
+  socket.emit("confirmation", "connected!")
+  socket.on("event", (data)=>{
+    console.log(socket.id, data)
+    socket.broadcast.emit("receive_message",data.message)
+  })
+})
 
 app.use(compression());
 
@@ -48,7 +64,7 @@ app.use(morgan("tiny"));
 app.all("*", remixHandler);
 
 const port = process.env.PORT || 3000;
-app.listen(port, async () => {
+httpServer.listen(port, async () => {
   console.log(`Express server listening on port ${port}`);
 
   if (process.env.NODE_ENV === "development") {
